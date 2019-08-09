@@ -1,6 +1,6 @@
 # cdc-consumer-poc
 
-## How to run
+## How to run on Mac
 
 - Execute `docker-compose -f docker-compose-zookeeper.yml up` to run Zookeeper.
 - Execute `docker-compose -f docker-compose-rabbitmq.yml up` to run RabbitMQ.
