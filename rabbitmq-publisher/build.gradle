@@ -1,0 +1,25 @@
+plugins {
+	id 'org.springframework.boot' version '2.1.6.RELEASE'
+	id 'java'
+}
+
+apply plugin: 'io.spring.dependency-management'
+
+group = 'com.example'
+version = '0.0.1-SNAPSHOT'
+sourceCompatibility = '1.8'
+
+repositories {
+	mavenCentral()
+}
+
+dependencies {
+	implementation 'org.springframework.boot:spring-boot-starter-actuator'
+	implementation 'org.springframework.boot:spring-boot-starter-amqp'
+	implementation('io.projectreactor:reactor-core:3.2.8.RELEASE')
+
+	implementation('org.projectlombok:lombok:1.16.16')
+	annotationProcessor("org.projectlombok:lombok:1.16.16")
+
+	testImplementation 'org.springframework.boot:spring-boot-starter-test'
+}

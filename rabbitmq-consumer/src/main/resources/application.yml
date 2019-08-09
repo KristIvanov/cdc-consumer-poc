@@ -1,0 +1,4 @@
+consumer:
+  queue: queue-1
+  enabled: true
+
