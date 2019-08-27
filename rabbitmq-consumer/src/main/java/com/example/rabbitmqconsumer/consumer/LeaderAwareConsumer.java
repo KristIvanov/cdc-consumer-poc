@@ -5,10 +5,7 @@ import static com.example.rabbitmqconsumer.consumer.TopicListener.CONTAINER_ID;
 import java.util.Collections;
 import java.util.List;
 import lombok.extern.slf4j.Slf4j;
-import org.apache.curator.framework.CuratorFramework;
-import org.apache.curator.framework.CuratorFrameworkFactory;
 import org.apache.curator.framework.api.CuratorWatcher;
-import org.apache.curator.retry.RetryOneTime;
 import org.apache.zookeeper.CreateMode;
 import org.apache.zookeeper.WatchedEvent;
 import org.apache.zookeeper.Watcher.Event.EventType;
@@ -23,12 +20,11 @@ import org.springframework.stereotype.Service;
 @ConditionalOnProperty(value = "consumer.enabled", havingValue = "true")
 public class LeaderAwareConsumer implements CuratorWatcher, SmartLifecycle {
 
-    private static final String ZOOKEEPER_HOST = "localhost:2181";
     private static final String ELECTION_ROOT_PATH = "/election";
     private static final String PROCESS_NODE_PREFIX = ELECTION_ROOT_PATH + "/leader-";
 
     private RabbitListenerEndpointRegistry rabbitListenerEndpointRegistry;
-    private CuratorFramework client;
+    private CuratorService curatorService;
 
     boolean runStatus = false;
 
@@ -36,18 +32,17 @@ public class LeaderAwareConsumer implements CuratorWatcher, SmartLifecycle {
     private String watchedNodePath;
 
     @Autowired
-    public LeaderAwareConsumer(RabbitListenerEndpointRegistry rabbitListenerEndpointRegistry) {
+    public LeaderAwareConsumer(RabbitListenerEndpointRegistry rabbitListenerEndpointRegistry, CuratorService curatorService) {
         this.rabbitListenerEndpointRegistry = rabbitListenerEndpointRegistry;
+        this.curatorService = curatorService;
     }
 
     @Override
     public void start() {
-        client = CuratorFrameworkFactory.newClient(ZOOKEEPER_HOST, 60000, 15000, new RetryOneTime(10_000));
-        client.start();
 
         try {
-            createNode(client, ELECTION_ROOT_PATH, CreateMode.PERSISTENT);
-            processNodePath = createNode(client, PROCESS_NODE_PREFIX, CreateMode.EPHEMERAL_SEQUENTIAL);
+            curatorService.createNode(ELECTION_ROOT_PATH, CreateMode.PERSISTENT);
+            processNodePath = curatorService.createNode(PROCESS_NODE_PREFIX, CreateMode.EPHEMERAL_SEQUENTIAL);
 
             if (processNodePath != null) {
                 watchNodeWithOneLessSequence();
@@ -61,7 +56,7 @@ public class LeaderAwareConsumer implements CuratorWatcher, SmartLifecycle {
 
     private void watchNodeWithOneLessSequence() throws Exception {
 
-        List<String> childNodePaths = client.getChildren().forPath(ELECTION_ROOT_PATH);
+        List<String> childNodePaths = curatorService.getChildrenPaths(ELECTION_ROOT_PATH);
         Collections.sort(childNodePaths);
 
         int index = childNodePaths.indexOf(processNodePath.substring(processNodePath.lastIndexOf('/') + 1));
@@ -74,14 +69,8 @@ public class LeaderAwareConsumer implements CuratorWatcher, SmartLifecycle {
             watchedNodePath = ELECTION_ROOT_PATH + "/" + watchedNodeShortPath;
 
             log.info("Setting watch on node {}", watchedNodePath);
-            client.checkExists().usingWatcher(this).forPath(watchedNodePath);
+            curatorService.watchNode(this, watchedNodePath);
         }
-    }
-
-    private String createNode(CuratorFramework client, String nodePath, CreateMode createMode) throws Exception {
-
-        return client.checkExists().forPath(nodePath) != null ? nodePath : client.create()
-                .withMode(createMode).forPath(nodePath);
     }
 
     @Override
@@ -98,7 +87,7 @@ public class LeaderAwareConsumer implements CuratorWatcher, SmartLifecycle {
 
         rabbitListenerEndpointRegistry.stop();
         try {
-            client.delete().forPath(processNodePath);
+            curatorService.delete(processNodePath);
             log.info("Deleting node {}", processNodePath);
             runStatus = false;
         } catch (Exception e) {
