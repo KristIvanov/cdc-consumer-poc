@@ -40,6 +40,25 @@ public class LeaderAwareConsumer implements CuratorWatcher, SmartLifecycle {
         this.rabbitListenerEndpointRegistry = rabbitListenerEndpointRegistry;
     }
 
+    @Override
+    public void start() {
+        client = CuratorFrameworkFactory.newClient(ZOOKEEPER_HOST, 60000, 15000, new RetryOneTime(10_000));
+        client.start();
+
+        try {
+            createNode(client, ELECTION_ROOT_PATH, CreateMode.PERSISTENT);
+            processNodePath = createNode(client, PROCESS_NODE_PREFIX, CreateMode.EPHEMERAL_SEQUENTIAL);
+
+            if (processNodePath != null) {
+                watchNodeWithOneLessSequence();
+            }
+
+            runStatus = true;
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
+
     private void watchNodeWithOneLessSequence() throws Exception {
 
         List<String> childNodePaths = client.getChildren().forPath(ELECTION_ROOT_PATH);
@@ -71,25 +90,6 @@ public class LeaderAwareConsumer implements CuratorWatcher, SmartLifecycle {
         EventType eventType = event.getType();
         if (EventType.NodeDeleted.equals(eventType) && event.getPath().equalsIgnoreCase(watchedNodePath)) {
             rabbitListenerEndpointRegistry.getListenerContainer(CONTAINER_ID).start();
-        }
-    }
-
-    @Override
-    public void start() {
-        client = CuratorFrameworkFactory.newClient(ZOOKEEPER_HOST, 60000, 15000, new RetryOneTime(10_000));
-        client.start();
-
-        try {
-            createNode(client, ELECTION_ROOT_PATH, CreateMode.PERSISTENT);
-            processNodePath = createNode(client, PROCESS_NODE_PREFIX, CreateMode.EPHEMERAL_SEQUENTIAL);
-
-            if (processNodePath != null) {
-                watchNodeWithOneLessSequence();
-            }
-
-            runStatus = true;
-        } catch (Exception e) {
-            e.printStackTrace();
         }
     }
 
