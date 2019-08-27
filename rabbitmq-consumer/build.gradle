@@ -18,7 +18,10 @@ dependencies {
     implementation 'org.springframework.boot:spring-boot-starter-web'
     implementation 'org.springframework.boot:spring-boot-starter-amqp'
 
-    implementation 'org.apache.curator:curator-recipes:4.2.0'
+    implementation('org.apache.zookeeper:zookeeper:3.4.13')
+    implementation ('org.apache.curator:curator-recipes:4.2.0'){
+        exclude group: 'org.apache.zookeeper', module: 'zookeeper'
+    }
 
     implementation 'org.projectlombok:lombok:1.16.16'
     annotationProcessor "org.projectlombok:lombok:1.16.16"
